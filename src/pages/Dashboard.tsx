@@ -10,6 +10,8 @@ import WorkspaceList from "@/components/WorkspaceList";
 import DatasetUpload from "@/components/DatasetUpload";
 import EvaluatorDashboard from "@/components/EvaluatorDashboard";
 import CreateWorkspaceDialog from "@/components/CreateWorkspaceDialog";
+import AnnotationInterface from "@/components/AnnotationInterface";
+import ModelTraining from "@/components/ModelTraining";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -56,7 +58,7 @@ const Dashboard = () => {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-foreground">NLU Chatbot Trainer</h1>
-              <p className="text-sm text-muted-foreground">Milestone 1: Setup, Auth & Dataset Management</p>
+              <p className="text-sm text-muted-foreground">Milestone 1 & 2: Dataset Management, Annotation & Model Training</p>
             </div>
           </div>
           <Button variant="outline" onClick={handleSignOut}>
@@ -71,15 +73,17 @@ const Dashboard = () => {
           <CardHeader>
             <CardTitle>User Authentication & Dataset Management</CardTitle>
             <CardDescription>
-              Manage your workspaces, upload datasets, and view evaluations
+              Milestone 1: Dataset Management | Milestone 2: Annotation & Model Training
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="workspace" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="workspace">Workspace</TabsTrigger>
                 <TabsTrigger value="dataset">Dataset Upload</TabsTrigger>
-                <TabsTrigger value="evaluator">Evaluator Dashboard</TabsTrigger>
+                <TabsTrigger value="annotation">Annotation</TabsTrigger>
+                <TabsTrigger value="training">Model Training</TabsTrigger>
+                <TabsTrigger value="evaluator">Evaluator</TabsTrigger>
               </TabsList>
 
               <TabsContent value="workspace" className="space-y-4">
@@ -106,6 +110,32 @@ const Dashboard = () => {
                 ) : (
                   <div className="text-center py-12 text-muted-foreground">
                     <p>Please select a workspace first to upload datasets</p>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="annotation" className="space-y-4">
+                {selectedWorkspace ? (
+                  <AnnotationInterface 
+                    workspaceId={selectedWorkspace} 
+                    userId={user?.id} 
+                  />
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <p>Please select a workspace first to start annotating</p>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="training" className="space-y-4">
+                {selectedWorkspace ? (
+                  <ModelTraining 
+                    workspaceId={selectedWorkspace} 
+                    userId={user?.id} 
+                  />
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <p>Please select a workspace first to train models</p>
                   </div>
                 )}
               </TabsContent>

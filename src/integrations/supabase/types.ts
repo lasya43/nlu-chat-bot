@@ -14,6 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      annotations: {
+        Row: {
+          auto_predicted: boolean | null
+          confidence_score: number | null
+          created_at: string
+          dataset_id: string | null
+          entities: Json | null
+          id: string
+          intent: string | null
+          text: string
+          updated_at: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          auto_predicted?: boolean | null
+          confidence_score?: number | null
+          created_at?: string
+          dataset_id?: string | null
+          entities?: Json | null
+          id?: string
+          intent?: string | null
+          text: string
+          updated_at?: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          auto_predicted?: boolean | null
+          confidence_score?: number | null
+          created_at?: string
+          dataset_id?: string | null
+          entities?: Json | null
+          id?: string
+          intent?: string | null
+          text?: string
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "annotations_dataset_id_fkey"
+            columns: ["dataset_id"]
+            isOneToOne: false
+            referencedRelation: "datasets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "annotations_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       datasets: {
         Row: {
           file_size: number
@@ -135,6 +192,59 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      trained_models: {
+        Row: {
+          accuracy: number | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          model_name: string
+          model_path: string | null
+          model_type: string
+          status: string | null
+          training_data_count: number | null
+          updated_at: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          model_name: string
+          model_path?: string | null
+          model_type?: string
+          status?: string | null
+          training_data_count?: number | null
+          updated_at?: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          model_name?: string
+          model_path?: string | null
+          model_type?: string
+          status?: string | null
+          training_data_count?: number | null
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trained_models_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workspaces: {
         Row: {

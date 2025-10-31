@@ -1,1 +1,7 @@
 project_id = "rcsuyruejgmsxcairpbe"
+
+[functions.nlu-predict]
+verify_jwt = true
+
+[functions.train-model]
+verify_jwt = true
