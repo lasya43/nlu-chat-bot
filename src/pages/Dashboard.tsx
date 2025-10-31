@@ -71,9 +71,9 @@ const Dashboard = () => {
       <main className="container mx-auto px-4 py-8">
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle>User Authentication & Dataset Management</CardTitle>
+            <CardTitle>NLU Chatbot Trainer</CardTitle>
             <CardDescription>
-              Milestone 1: Dataset Management | Milestone 2: Annotation & Model Training
+              Complete workflow: Dataset Upload → Annotation → Model Training → Evaluation
             </CardDescription>
           </CardHeader>
           <CardContent>
