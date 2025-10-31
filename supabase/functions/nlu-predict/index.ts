@@ -40,15 +40,26 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are an NLU (Natural Language Understanding) model that predicts intents and extracts entities from user text.
-Possible intents include: book_flight, check_weather, find_restaurant, order_food, get_directions, book_hotel, cancel_booking, check_status, ask_question, greeting, farewell.
-Possible entity types: location, date, time, person, organization, product, quantity, price.
+            content: `You are an expert NLU (Natural Language Understanding) model that predicts intents and extracts entities from user text.
 
-Extract entities with their text span, start position, end position, and type.`
+Your task:
+1. Identify the main intent from: book_flight, check_weather, find_restaurant, order_food, get_directions, book_hotel, cancel_booking, check_status, ask_question, greeting, farewell
+2. Extract ALL relevant entities with these types: location, date, time, person, organization, product, quantity, price
+
+IMPORTANT: Actively look for and extract entities. For each entity found:
+- Identify the exact text span
+- Calculate the start position (character index where entity begins)
+- Calculate the end position (character index where entity ends)
+- Assign the correct entity type
+
+Examples:
+- "Book a flight to Paris tomorrow" → entities: [{"text": "Paris", "type": "location", "start": 18, "end": 23}, {"text": "tomorrow", "type": "date", "start": 24, "end": 32}]
+- "What's the weather in New York at 3pm?" → entities: [{"text": "New York", "type": "location", "start": 23, "end": 31}, {"text": "3pm", "type": "time", "start": 35, "end": 38}]
+- "Order 2 pizzas from Pizza Hut" → entities: [{"text": "2", "type": "quantity", "start": 6, "end": 7}, {"text": "pizzas", "type": "product", "start": 8, "end": 14}, {"text": "Pizza Hut", "type": "organization", "start": 20, "end": 29}]`
           },
           {
             role: "user",
-            content: `Analyze this text and extract intent and entities: "${text}"`
+            content: `Analyze this text and extract both intent and entities: "${text}"`
           }
         ],
         tools: [
