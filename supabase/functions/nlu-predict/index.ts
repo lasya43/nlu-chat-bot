@@ -38,28 +38,23 @@ serve(async (req) => {
         model: "google/gemini-2.5-flash",
         messages: [
           {
-            role: "system",
-            content: `You are an NLU expert. Analyze user text and return ONLY valid JSON with this exact structure:
+            role: "user",
+            content: `Analyze this text for NLU and respond with ONLY a JSON object (no markdown, no explanation):
+
+Text: "${text}"
+
+Return this exact format:
 {
-  "intent": "one of: book_flight, check_weather, find_restaurant, order_food, get_directions, book_hotel, cancel_booking, check_status, ask_question, greeting, farewell",
+  "intent": "book_flight or check_weather or find_restaurant or order_food or get_directions or book_hotel or cancel_booking or check_status or ask_question or greeting or farewell",
   "confidence": 0.9,
   "entities": [
-    {"text": "entity text", "type": "location|date|time|person|organization|product|quantity|price", "start": 0, "end": 5}
+    {"text": "word", "type": "location or date or time or person or organization or product or quantity or price", "start": 5, "end": 9}
   ]
 }
 
-Rules:
-- Extract ALL entities you find
-- Calculate exact start/end character positions
-- Use confidence between 0 and 1
-- Return ONLY the JSON object, no other text`
-          },
-          {
-            role: "user",
-            content: text
+Extract all entities with exact character positions. If no entities, return empty array.`
           }
-        ],
-        temperature: 0.3
+        ]
       }),
     });
 
