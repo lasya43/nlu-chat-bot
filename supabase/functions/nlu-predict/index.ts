@@ -5,6 +5,101 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Rule-based NLU prediction system
+function predictNLU(text: string) {
+  const lowerText = text.toLowerCase();
+  
+  // Intent classification rules
+  const intentRules = {
+    book_flight: ['book flight', 'flight ticket', 'fly to', 'airline', 'plane ticket'],
+    check_weather: ['weather', 'temperature', 'forecast', 'rain', 'sunny', 'climate'],
+    find_restaurant: ['restaurant', 'eat', 'dining', 'food place', 'lunch', 'dinner'],
+    order_food: ['order food', 'delivery', 'pizza', 'burger', 'takeout'],
+    get_directions: ['directions', 'how to get', 'navigate', 'route', 'way to'],
+    book_hotel: ['book hotel', 'hotel room', 'accommodation', 'stay at'],
+    cancel_booking: ['cancel', 'cancellation', 'refund'],
+    check_status: ['status', 'check my', 'where is my'],
+    greeting: ['hello', 'hi', 'hey', 'good morning', 'good evening'],
+    farewell: ['bye', 'goodbye', 'see you', 'take care'],
+  };
+
+  // Find matching intent
+  let predictedIntent = 'ask_question';
+  let maxMatches = 0;
+  
+  for (const [intent, keywords] of Object.entries(intentRules)) {
+    const matches = keywords.filter(keyword => lowerText.includes(keyword)).length;
+    if (matches > maxMatches) {
+      maxMatches = matches;
+      predictedIntent = intent;
+    }
+  }
+
+  const confidence = maxMatches > 0 ? 0.85 : 0.5;
+
+  // Entity extraction rules
+  const entities: Array<{text: string, type: string, start: number, end: number}> = [];
+  
+  // Location patterns
+  const locationWords = ['new york', 'london', 'paris', 'tokyo', 'delhi', 'mumbai', 'bangalore', 'chennai'];
+  locationWords.forEach(loc => {
+    const index = lowerText.indexOf(loc);
+    if (index !== -1) {
+      entities.push({
+        text: text.substring(index, index + loc.length),
+        type: 'location',
+        start: index,
+        end: index + loc.length
+      });
+    }
+  });
+
+  // Date patterns (simple)
+  const datePatterns = /\b(today|tomorrow|yesterday|monday|tuesday|wednesday|thursday|friday|saturday|sunday|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d{1,2}\/\d{1,2}\/\d{2,4})\b/gi;
+  let match;
+  while ((match = datePatterns.exec(text)) !== null) {
+    entities.push({
+      text: match[0],
+      type: 'date',
+      start: match.index,
+      end: match.index + match[0].length
+    });
+  }
+
+  // Time patterns
+  const timePatterns = /\b(\d{1,2}:\d{2}\s?(am|pm)?|\d{1,2}\s?(am|pm))\b/gi;
+  while ((match = timePatterns.exec(text)) !== null) {
+    entities.push({
+      text: match[0],
+      type: 'time',
+      start: match.index,
+      end: match.index + match[0].length
+    });
+  }
+
+  // Number/quantity patterns
+  const numberPatterns = /\b(\d+)\s?(people|person|tickets?|rooms?|nights?|days?)\b/gi;
+  while ((match = numberPatterns.exec(text)) !== null) {
+    entities.push({
+      text: match[0],
+      type: 'quantity',
+      start: match.index,
+      end: match.index + match[0].length
+    });
+  }
+
+  // Remove duplicate entities
+  const uniqueEntities = entities.filter((entity, index, self) =>
+    index === self.findIndex(e => e.start === entity.start && e.end === entity.end)
+  );
+
+  return {
+    intent: predictedIntent,
+    confidence: confidence,
+    entities: uniqueEntities
+  };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -20,90 +115,11 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
-
     console.log("Predicting intent and entities for text:", text);
 
-    // Use google/gemini-2.5-flash-lite (fastest, most reliable)
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
-        messages: [
-          {
-            role: "user",
-            content: `You are an NLU classifier. Analyze this text and return ONLY a JSON object with no additional text or markdown:
-
-Text: "${text}"
-
-Classify the intent as ONE of: book_flight, check_weather, find_restaurant, order_food, get_directions, book_hotel, cancel_booking, check_status, ask_question, greeting, farewell
-
-Extract entities with types: location, date, time, person, organization, product, quantity, price
-
-Return exactly this JSON format:
-{"intent": "intent_name", "confidence": 0.95, "entities": [{"text": "entity_text", "type": "entity_type", "start": 0, "end": 5}]}`
-          }
-        ]
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Credits exhausted. Please add credits to your workspace." }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      return new Response(
-        JSON.stringify({ error: "AI prediction failed", details: errorText }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const data = await response.json();
-    console.log("AI raw response:", JSON.stringify(data, null, 2));
-
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) {
-      throw new Error("No content in AI response");
-    }
-
-    let result;
-    try {
-      const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
-      result = JSON.parse(cleanContent);
-      
-      if (!result.intent || typeof result.confidence !== 'number' || !Array.isArray(result.entities)) {
-        throw new Error("Invalid response format");
-      }
-      
-      console.log("Parsed result:", JSON.stringify(result, null, 2));
-    } catch (parseError) {
-      console.error("Failed to parse AI response:", content, parseError);
-      result = {
-        intent: "ask_question",
-        confidence: 0.5,
-        entities: []
-      };
-    }
+    const result = predictNLU(text);
+    
+    console.log("Prediction result:", JSON.stringify(result, null, 2));
 
     return new Response(
       JSON.stringify(result),
