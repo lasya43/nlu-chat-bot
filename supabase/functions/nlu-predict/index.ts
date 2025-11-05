@@ -27,7 +27,7 @@ serve(async (req) => {
 
     console.log("Predicting intent and entities for text:", text);
 
-    // Use OpenAI's gpt-5-nano which is better for classification tasks
+    // Use google/gemini-2.5-flash-lite (fastest, most reliable)
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -35,22 +35,20 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "openai/gpt-5-nano",
+        model: "google/gemini-2.5-flash-lite",
         messages: [
           {
-            role: "system",
-            content: "You are an NLU expert. Respond with ONLY valid JSON, no markdown or explanation."
-          },
-          {
             role: "user",
-            content: `Analyze this text for intent and entities: "${text}"
+            content: `You are an NLU classifier. Analyze this text and return ONLY a JSON object with no additional text or markdown:
 
-Return JSON:
-{
-  "intent": "book_flight|check_weather|find_restaurant|order_food|get_directions|book_hotel|cancel_booking|check_status|ask_question|greeting|farewell",
-  "confidence": 0.9,
-  "entities": [{"text": "word", "type": "location|date|time|person|organization|product|quantity|price", "start": 0, "end": 4}]
-}`
+Text: "${text}"
+
+Classify the intent as ONE of: book_flight, check_weather, find_restaurant, order_food, get_directions, book_hotel, cancel_booking, check_status, ask_question, greeting, farewell
+
+Extract entities with types: location, date, time, person, organization, product, quantity, price
+
+Return exactly this JSON format:
+{"intent": "intent_name", "confidence": 0.95, "entities": [{"text": "entity_text", "type": "entity_type", "start": 0, "end": 5}]}`
           }
         ]
       }),
