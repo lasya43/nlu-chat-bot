@@ -93,8 +93,7 @@ Examples:
                     }
                   }
                 },
-                required: ["intent", "confidence", "entities"],
-                additionalProperties: false
+                required: ["intent", "confidence", "entities"]
               }
             }
           }
