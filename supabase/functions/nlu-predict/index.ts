@@ -81,13 +81,26 @@ Examples:
                   },
                   entities: {
                     type: "array",
+                    description: "List of extracted entities",
                     items: {
                       type: "object",
                       properties: {
-                        text: { type: "string", description: "The entity text" },
-                        type: { type: "string", description: "The entity type" },
-                        start: { type: "number", description: "Start position in text" },
-                        end: { type: "number", description: "End position in text" }
+                        text: { 
+                          type: "string", 
+                          description: "The entity text" 
+                        },
+                        type: { 
+                          type: "string", 
+                          description: "The entity type (location, date, time, person, organization, product, quantity, price)" 
+                        },
+                        start: { 
+                          type: "number", 
+                          description: "Start character position in text" 
+                        },
+                        end: { 
+                          type: "number", 
+                          description: "End character position in text" 
+                        }
                       },
                       required: ["text", "type", "start", "end"]
                     }
@@ -105,8 +118,28 @@ Examples:
     if (!response.ok) {
       const errorText = await response.text();
       console.error("AI gateway error:", response.status, errorText);
+      
+      // Provide more specific error messages
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ error: "Credits exhausted. Please add credits to your Lovable workspace." }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
       return new Response(
-        JSON.stringify({ error: "AI gateway error" }),
+        JSON.stringify({ 
+          error: "AI gateway error", 
+          details: errorText,
+          status: response.status 
+        }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
