@@ -27,7 +27,7 @@ serve(async (req) => {
 
     console.log("Predicting intent and entities for text:", text);
 
-    // Use a simpler approach without tool calling
+    // Use OpenAI's gpt-5-nano which is better for classification tasks
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -35,24 +35,22 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "openai/gpt-5-nano",
         messages: [
           {
+            role: "system",
+            content: "You are an NLU expert. Respond with ONLY valid JSON, no markdown or explanation."
+          },
+          {
             role: "user",
-            content: `Analyze this text for NLU and respond with ONLY a JSON object (no markdown, no explanation):
+            content: `Analyze this text for intent and entities: "${text}"
 
-Text: "${text}"
-
-Return this exact format:
+Return JSON:
 {
-  "intent": "book_flight or check_weather or find_restaurant or order_food or get_directions or book_hotel or cancel_booking or check_status or ask_question or greeting or farewell",
+  "intent": "book_flight|check_weather|find_restaurant|order_food|get_directions|book_hotel|cancel_booking|check_status|ask_question|greeting|farewell",
   "confidence": 0.9,
-  "entities": [
-    {"text": "word", "type": "location or date or time or person or organization or product or quantity or price", "start": 5, "end": 9}
-  ]
-}
-
-Extract all entities with exact character positions. If no entities, return empty array.`
+  "entities": [{"text": "word", "type": "location|date|time|person|organization|product|quantity|price", "start": 0, "end": 4}]
+}`
           }
         ]
       }),
@@ -71,7 +69,7 @@ Extract all entities with exact character positions. If no entities, return empt
       
       if (response.status === 402) {
         return new Response(
-          JSON.stringify({ error: "Credits exhausted. Please add credits." }),
+          JSON.stringify({ error: "Credits exhausted. Please add credits to your workspace." }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -85,20 +83,16 @@ Extract all entities with exact character positions. If no entities, return empt
     const data = await response.json();
     console.log("AI raw response:", JSON.stringify(data, null, 2));
 
-    // Extract the content from the response
     const content = data.choices?.[0]?.message?.content;
     if (!content) {
       throw new Error("No content in AI response");
     }
 
-    // Parse the JSON from the response
     let result;
     try {
-      // Remove markdown code blocks if present
       const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
       result = JSON.parse(cleanContent);
       
-      // Validate the result has required fields
       if (!result.intent || typeof result.confidence !== 'number' || !Array.isArray(result.entities)) {
         throw new Error("Invalid response format");
       }
@@ -106,7 +100,6 @@ Extract all entities with exact character positions. If no entities, return empt
       console.log("Parsed result:", JSON.stringify(result, null, 2));
     } catch (parseError) {
       console.error("Failed to parse AI response:", content, parseError);
-      // Return a default response if parsing fails
       result = {
         intent: "ask_question",
         confidence: 0.5,
