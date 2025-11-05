@@ -5,16 +5,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Rule-based NLU prediction system
+// Enhanced rule-based NLU prediction system
 function predictNLU(text: string) {
   const lowerText = text.toLowerCase();
   
-  // Intent classification rules
+  // Intent classification rules (expanded)
   const intentRules = {
-    book_flight: ['book flight', 'flight ticket', 'fly to', 'airline', 'plane ticket'],
-    check_weather: ['weather', 'temperature', 'forecast', 'rain', 'sunny', 'climate'],
-    find_restaurant: ['restaurant', 'eat', 'dining', 'food place', 'lunch', 'dinner'],
-    order_food: ['order food', 'delivery', 'pizza', 'burger', 'takeout'],
+    book_flight: ['book flight', 'flight ticket', 'fly to', 'airline', 'plane ticket', 'book a flight'],
+    check_weather: ['weather', 'temperature', 'forecast', 'rain', 'sunny', 'climate', 'snow', 'will it'],
+    find_restaurant: ['restaurant', 'eat', 'dining', 'food place', 'lunch', 'dinner', 'cuisine', 'downtown', 'close to'],
+    order_food: ['order food', 'delivery', 'pizza', 'burger', 'takeout', 'churrascaria'],
     get_directions: ['directions', 'how to get', 'navigate', 'route', 'way to'],
     book_hotel: ['book hotel', 'hotel room', 'accommodation', 'stay at'],
     cancel_booking: ['cancel', 'cancellation', 'refund'],
@@ -40,8 +40,13 @@ function predictNLU(text: string) {
   // Entity extraction rules
   const entities: Array<{text: string, type: string, start: number, end: number}> = [];
   
-  // Location patterns
-  const locationWords = ['new york', 'london', 'paris', 'tokyo', 'delhi', 'mumbai', 'bangalore', 'chennai'];
+  // Location patterns (expanded with common cities and abbreviations)
+  const locationWords = [
+    'new york', 'london', 'paris', 'tokyo', 'delhi', 'mumbai', 'bangalore', 'chennai',
+    'downtown', 'mt', 'montana', 'california', 'texas', 'florida', 'boston', 'chicago',
+    'seattle', 'san francisco', 'los angeles', 'miami', 'atlanta'
+  ];
+  
   locationWords.forEach(loc => {
     const index = lowerText.indexOf(loc);
     if (index !== -1) {
@@ -54,9 +59,9 @@ function predictNLU(text: string) {
     }
   });
 
-  // Date patterns (simple)
-  const datePatterns = /\b(today|tomorrow|yesterday|monday|tuesday|wednesday|thursday|friday|saturday|sunday|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d{1,2}\/\d{1,2}\/\d{2,4})\b/gi;
-  let match;
+  // Date patterns (enhanced with full dates)
+  const datePatterns = /\b(today|tomorrow|yesterday|monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d{1,2}(?:,?\s+\d{2,4})?|\d{1,2}\/\d{1,2}\/\d{2,4}|\d{4}\b/gi;
+  let match: RegExpExecArray | null;
   while ((match = datePatterns.exec(text)) !== null) {
     entities.push({
       text: match[0],
@@ -77,9 +82,9 @@ function predictNLU(text: string) {
     });
   }
 
-  // Number/quantity patterns
-  const numberPatterns = /\b(\d+)\s?(people|person|tickets?|rooms?|nights?|days?)\b/gi;
-  while ((match = numberPatterns.exec(text)) !== null) {
+  // Number/quantity patterns (expanded)
+  const quantityPatterns = /\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+(people|person|tickets?|rooms?|nights?|days?|guests?)\b/gi;
+  while ((match = quantityPatterns.exec(text)) !== null) {
     entities.push({
       text: match[0],
       type: 'quantity',
@@ -87,6 +92,45 @@ function predictNLU(text: string) {
       end: match.index + match[0].length
     });
   }
+
+  // Person/artist names (pattern matching capitalized words)
+  const personPattern = /\b[A-Z][a-z]+\s+[A-Z][a-z]+\b/g;
+  while ((match = personPattern.exec(text)) !== null) {
+    entities.push({
+      text: match[0],
+      type: 'person',
+      start: match.index,
+      end: match.index + match[0].length
+    });
+  }
+
+  // Organization/playlist names (quoted or multiple capitalized words)
+  const orgPattern = /"([^"]+)"|'([^']+)'|\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){2,})\b/g;
+  while ((match = orgPattern.exec(text)) !== null) {
+    const matchedText = match[1] || match[2] || match[3];
+    if (matchedText && match && !entities.some(e => e.start === match!.index)) {
+      entities.push({
+        text: matchedText,
+        type: 'organization',
+        start: match.index,
+        end: match.index + matchedText.length
+      });
+    }
+  }
+
+  // Product/cuisine types
+  const productWords = ['churrascaria', 'pizza', 'burger', 'sushi', 'italian', 'chinese', 'mexican', 'thai'];
+  productWords.forEach(product => {
+    const index = lowerText.indexOf(product);
+    if (index !== -1 && !entities.some(e => e.start === index)) {
+      entities.push({
+        text: text.substring(index, index + product.length),
+        type: 'product',
+        start: index,
+        end: index + product.length
+      });
+    }
+  });
 
   // Remove duplicate entities
   const uniqueEntities = entities.filter((entity, index, self) =>
