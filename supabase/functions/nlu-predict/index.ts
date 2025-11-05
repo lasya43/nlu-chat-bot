@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,7 +27,7 @@ serve(async (req) => {
 
     console.log("Predicting intent and entities for text:", text);
 
-    // Use Lovable AI with tool calling for structured output
+    // Use a simpler approach without tool calling
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -40,78 +39,27 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are an expert NLU (Natural Language Understanding) model that predicts intents and extracts entities from user text.
+            content: `You are an NLU expert. Analyze user text and return ONLY valid JSON with this exact structure:
+{
+  "intent": "one of: book_flight, check_weather, find_restaurant, order_food, get_directions, book_hotel, cancel_booking, check_status, ask_question, greeting, farewell",
+  "confidence": 0.9,
+  "entities": [
+    {"text": "entity text", "type": "location|date|time|person|organization|product|quantity|price", "start": 0, "end": 5}
+  ]
+}
 
-Your task:
-1. Identify the main intent from: book_flight, check_weather, find_restaurant, order_food, get_directions, book_hotel, cancel_booking, check_status, ask_question, greeting, farewell
-2. Extract ALL relevant entities with these types: location, date, time, person, organization, product, quantity, price
-
-IMPORTANT: Actively look for and extract entities. For each entity found:
-- Identify the exact text span
-- Calculate the start position (character index where entity begins)
-- Calculate the end position (character index where entity ends)
-- Assign the correct entity type
-
-Examples:
-- "Book a flight to Paris tomorrow" → entities: [{"text": "Paris", "type": "location", "start": 18, "end": 23}, {"text": "tomorrow", "type": "date", "start": 24, "end": 32}]
-- "What's the weather in New York at 3pm?" → entities: [{"text": "New York", "type": "location", "start": 23, "end": 31}, {"text": "3pm", "type": "time", "start": 35, "end": 38}]
-- "Order 2 pizzas from Pizza Hut" → entities: [{"text": "2", "type": "quantity", "start": 6, "end": 7}, {"text": "pizzas", "type": "product", "start": 8, "end": 14}, {"text": "Pizza Hut", "type": "organization", "start": 20, "end": 29}]`
+Rules:
+- Extract ALL entities you find
+- Calculate exact start/end character positions
+- Use confidence between 0 and 1
+- Return ONLY the JSON object, no other text`
           },
           {
             role: "user",
-            content: `Analyze this text and extract both intent and entities: "${text}"`
+            content: text
           }
         ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "extract_nlu",
-              description: "Extract intent and entities from the user text",
-              parameters: {
-                type: "object",
-                properties: {
-                  intent: {
-                    type: "string",
-                    description: "The predicted intent"
-                  },
-                  confidence: {
-                    type: "number",
-                    description: "Confidence score between 0 and 1"
-                  },
-                  entities: {
-                    type: "array",
-                    description: "List of extracted entities",
-                    items: {
-                      type: "object",
-                      properties: {
-                        text: { 
-                          type: "string", 
-                          description: "The entity text" 
-                        },
-                        type: { 
-                          type: "string", 
-                          description: "The entity type (location, date, time, person, organization, product, quantity, price)" 
-                        },
-                        start: { 
-                          type: "number", 
-                          description: "Start character position in text" 
-                        },
-                        end: { 
-                          type: "number", 
-                          description: "End character position in text" 
-                        }
-                      },
-                      required: ["text", "type", "start", "end"]
-                    }
-                  }
-                },
-                required: ["intent", "confidence", "entities"]
-              }
-            }
-          }
-        ],
-        tool_choice: { type: "function", function: { name: "extract_nlu" } }
+        temperature: 0.3
       }),
     });
 
@@ -119,41 +67,57 @@ Examples:
       const errorText = await response.text();
       console.error("AI gateway error:", response.status, errorText);
       
-      // Provide more specific error messages
       if (response.status === 429) {
         return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
+          JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
       if (response.status === 402) {
         return new Response(
-          JSON.stringify({ error: "Credits exhausted. Please add credits to your Lovable workspace." }),
+          JSON.stringify({ error: "Credits exhausted. Please add credits." }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
       return new Response(
-        JSON.stringify({ 
-          error: "AI gateway error", 
-          details: errorText,
-          status: response.status 
-        }),
+        JSON.stringify({ error: "AI prediction failed", details: errorText }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const data = await response.json();
-    console.log("AI response:", JSON.stringify(data, null, 2));
+    console.log("AI raw response:", JSON.stringify(data, null, 2));
 
-    // Extract the tool call result
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall || !toolCall.function?.arguments) {
-      throw new Error("No tool call result from AI");
+    // Extract the content from the response
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new Error("No content in AI response");
     }
 
-    const result = JSON.parse(toolCall.function.arguments);
+    // Parse the JSON from the response
+    let result;
+    try {
+      // Remove markdown code blocks if present
+      const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
+      result = JSON.parse(cleanContent);
+      
+      // Validate the result has required fields
+      if (!result.intent || typeof result.confidence !== 'number' || !Array.isArray(result.entities)) {
+        throw new Error("Invalid response format");
+      }
+      
+      console.log("Parsed result:", JSON.stringify(result, null, 2));
+    } catch (parseError) {
+      console.error("Failed to parse AI response:", content, parseError);
+      // Return a default response if parsing fails
+      result = {
+        intent: "ask_question",
+        confidence: 0.5,
+        entities: []
+      };
+    }
 
     return new Response(
       JSON.stringify(result),
@@ -163,7 +127,12 @@ Examples:
   } catch (error) {
     console.error('Error in nlu-predict function:', error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        intent: "ask_question",
+        confidence: 0.5,
+        entities: []
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
